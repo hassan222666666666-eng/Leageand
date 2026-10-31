@@ -66,7 +66,7 @@ async function importWorkbook(file: File): Promise<Worker[]> {
     // accidentally select "كسر إجمالي الساعات" (hours fraction) before
     // the actual "مجموع الساعات" column in attendance exports.
     const total = headers.findIndex((h) =>
-      /^(مجموعالساعات|اجماليالساعات|الساعاتالاجمالية|اجماليساعاتالعمل|ساعاتالعملالاجمالية|totalhours|totalworkinghours|sumofhours)$/.test(h),
+      /^(مجموعالساعات|اجماليالساعات|الساعاتالاجمالية|اجماليساعاتالعمل|ساعاتالعملالاجمالية|الوقتالاجمالي|totalhours|totalworkinghours|sumofhours)$/.test(h),
     );
     if (total < 0) continue;
     headerRow = r;
