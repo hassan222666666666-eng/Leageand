@@ -30,7 +30,12 @@ function numericCell(value: unknown): number {
 }
 
 function normalizeHeader(value: unknown) {
-  return String(value ?? '').toLowerCase().replace(/[\s_\-ـ]/g, '');
+  return String(value ?? '')
+    .toLowerCase()
+    .normalize('NFKC')
+    .replace(/[إأآ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/[\s_\-ـ()[\]]/g, '');
 }
 
 async function importWorkbook(file: File): Promise<Worker[]> {
@@ -47,7 +52,12 @@ async function importWorkbook(file: File): Promise<Worker[]> {
     const headers = (grid[r] ?? []).map(normalizeHeader);
     const possibleName = headers.findIndex((h) => /^(الإسم|الاسم|اسمالعامل|اسم|employee|worker|name)/.test(h));
     if (possibleName < 0) continue;
-    const total = headers.findIndex((h) => /مجموعالساعات|إجماليالساعات|اجماليالساعات|totalhours|totalworkinghours/.test(h));
+    // Match complete total-hours labels only. A loose substring search can
+    // accidentally select "كسر إجمالي الساعات" (hours fraction) before
+    // the actual "مجموع الساعات" column in attendance exports.
+    const total = headers.findIndex((h) =>
+      /^(مجموعالساعات|اجماليالساعات|الساعاتالاجمالية|اجماليساعاتالعمل|ساعاتالعملالاجمالية|totalhours|totalworkinghours|sumofhours)$/.test(h),
+    );
     if (total < 0) continue;
     headerRow = r;
     nameCol = possibleName;
