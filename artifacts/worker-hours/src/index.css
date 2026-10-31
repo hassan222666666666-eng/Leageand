@@ -309,10 +309,10 @@ button { cursor: pointer; }
 .table-title { display:flex;align-items:center;gap:11px;color:#e4bd4e;font-weight:600;font-size:13px; }
 .count-badge { font:500 11px var(--app-font-mono);color:#d7aa30;background:#2c2410;border:1px solid #54431b;border-radius:5px;padding:4px 7px; }
 .table-scroll { overflow-x:auto; }
-table { width:100%;min-width:680px;border-collapse:collapse;table-layout:fixed; }
+table { width:100%;min-width:900px;border-collapse:collapse;table-layout:fixed; }
 th { background:#201d15;color:#d6b752;font-size:12px;font-weight:600;text-align:right;padding:12px 15px;border-bottom:1px solid #383022;white-space:nowrap; }
-th:first-child {width:54px;text-align:center;color:#8b8475}
-th:nth-child(2){width:34%} th:nth-child(3){width:20%} th:nth-child(4){width:22%} th:nth-child(5){width:22%}
+th:first-child {width:48px;text-align:center;color:#8b8475}
+th:nth-child(2){width:23%} th:nth-child(3){width:14%} th:nth-child(4){width:17%} th:nth-child(5){width:15%} th:nth-child(6){width:17%} th:nth-child(7){width:58px}
 td {padding:9px 12px;border-bottom:1px solid #262621;}
 tbody tr:last-child td {border-bottom:0}
 tbody tr:hover {background:#171713}
@@ -344,9 +344,10 @@ tbody tr:hover {background:#171713}
  tbody td:nth-child(2)::before{content:'اسم العامل';display:block;color:#aaa28e;font-size:10px;margin:0 0 5px}
  tbody td:nth-child(3)::before{content:'إجمالي الساعات';display:block;color:#aaa28e;font-size:10px;margin:0 0 5px}
  tbody td:nth-child(4)::before{content:'أجر الساعة (دينار)';display:block;color:#aaa28e;font-size:10px;margin:0 0 5px}
- tbody td:nth-child(5)::before{content:'الأجر المستحق';display:block;color:#aaa28e;font-size:10px;margin:0 0 5px}
- tbody td:nth-child(5){grid-column:1/2;align-self:center}
- tbody td:nth-child(6){position:absolute;left:8px;bottom:8px}
+  tbody td:nth-child(5)::before{content:'المكافأة (دينار، اختياري)';display:block;color:#aaa28e;font-size:10px;margin:0 0 5px}
+  tbody td:nth-child(6)::before{content:'الأجر النهائي';display:block;color:#aaa28e;font-size:10px;margin:0 0 5px}
+  tbody td:nth-child(6){grid-column:1/-1;align-self:center;padding-left:42px}
+  tbody td:nth-child(7){position:absolute;left:8px;bottom:8px}
  .field{padding:8px;font-size:12px}.pay-cell{font-size:13px}.empty-table{min-height:190px}
  .table-foot{align-items:flex-start;flex-direction:column}.table-foot .btn{width:100%}.total-box{width:100%;justify-content:space-between}
 }

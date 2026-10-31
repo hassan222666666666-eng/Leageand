@@ -2,16 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Calculator, Check, CircleHelp, Download, FileSpreadsheet, FileUp, Plus, Trash2, Users, X } from 'lucide-react';
 
-type Worker = { id: string; name: string; totalHours: number; hourlyRate: number };
+type Worker = { id: string; name: string; totalHours: number; hourlyRate: number; bonus: number };
 type SavedState = { rows: Worker[]; fileName: string };
 const STORAGE_KEY = 'daftar-worker-hours-v1';
 
-function makeWorker(name = '', totalHours = 0, hourlyRate = 0): Worker {
-  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, totalHours, hourlyRate };
+function makeWorker(name = '', totalHours = 0, hourlyRate = 0, bonus = 0): Worker {
+  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, totalHours, hourlyRate, bonus };
 }
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('ar-IQ', { maximumFractionDigits: 2 }).format(Number.isFinite(value) ? value : 0);
+}
+
+function calculateFinalPay(worker: Pick<Worker, 'totalHours' | 'hourlyRate' | 'bonus'>) {
+  return (Number(worker.totalHours) || 0) * (Number(worker.hourlyRate) || 0) + (Number(worker.bonus) || 0);
 }
 
 function numericCell(value: unknown): number {
@@ -93,7 +97,12 @@ async function importWorkbook(file: File): Promise<Worker[]> {
 function initialSavedState(): SavedState {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as SavedState | null;
-    if (parsed && Array.isArray(parsed.rows)) return { rows: parsed.rows, fileName: parsed.fileName ?? '' };
+    if (parsed && Array.isArray(parsed.rows)) {
+      return {
+        rows: parsed.rows.map((row) => ({ ...row, bonus: Number(row.bonus) || 0 })),
+        fileName: parsed.fileName ?? '',
+      };
+    }
   } catch { /* Use a clean state if browser storage is unavailable or malformed. */ }
   return { rows: [], fileName: '' };
 }
@@ -111,10 +120,10 @@ function App() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows, fileName })); } catch { /* Storage may be disabled. */ }
   }, [rows, fileName]);
 
-  const totalPayroll = rows.reduce((sum, row) => sum + (Number(row.totalHours) || 0) * (Number(row.hourlyRate) || 0), 0);
+  const totalPayroll = rows.reduce((sum, row) => sum + calculateFinalPay(row), 0);
   const totalHours = rows.reduce((sum, row) => sum + (Number(row.totalHours) || 0), 0);
 
-  function updateRow(id: string, field: 'name' | 'totalHours' | 'hourlyRate', value: string) {
+  function updateRow(id: string, field: 'name' | 'totalHours' | 'hourlyRate' | 'bonus', value: string) {
     setRows((current) => current.map((row) => row.id === id
       ? { ...row, [field]: field === 'name' ? value : value === '' ? 0 : Math.max(0, Number(value) || 0) }
       : row));
@@ -149,10 +158,12 @@ function App() {
       'اسم العامل': row.name,
       'إجمالي الساعات': Number(row.totalHours) || 0,
       'أجر الساعة (دينار)': Number(row.hourlyRate) || 0,
-      'الأجر المستحق (دينار)': (Number(row.totalHours) || 0) * (Number(row.hourlyRate) || 0),
+      'أجر الساعات (دينار)': (Number(row.totalHours) || 0) * (Number(row.hourlyRate) || 0),
+      'المكافأة (دينار)': Number(row.bonus) || 0,
+      'الأجر النهائي (دينار)': calculateFinalPay(row),
     }));
     const worksheet = XLSX.utils.json_to_sheet(data);
-    worksheet['!cols'] = [{ wch: 6 }, { wch: 28 }, { wch: 18 }, { wch: 22 }, { wch: 24 }];
+    worksheet['!cols'] = [{ wch: 6 }, { wch: 28 }, { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 18 }, { wch: 22 }];
     worksheet['!views'] = [{ rightToLeft: true }];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'أجور العمال');
@@ -232,7 +243,7 @@ function App() {
             <>
               <div className="table-scroll">
                 <table>
-                  <thead><tr><th>#</th><th>اسم العامل</th><th>إجمالي الساعات</th><th>أجر الساعة (دينار)</th><th>الأجر المستحق</th><th>حذف</th></tr></thead>
+                  <thead><tr><th>#</th><th>اسم العامل</th><th>إجمالي الساعات</th><th>أجر الساعة (دينار)</th><th>المكافأة (اختياري)</th><th>الأجر النهائي</th><th>حذف</th></tr></thead>
                   <tbody>
                     {rows.map((row, index) => (
                       <tr key={row.id}>
@@ -240,7 +251,8 @@ function App() {
                         <td><input aria-label={`اسم العامل ${index + 1}`} className="field" type="text" placeholder="اكتب اسم العامل" value={row.name} onChange={(event) => updateRow(row.id, 'name', event.target.value)} /></td>
                         <td><input aria-label={`إجمالي ساعات ${index + 1}`} className="field numeric" type="number" min="0" step="0.25" value={row.totalHours || ''} placeholder="0" onChange={(event) => updateRow(row.id, 'totalHours', event.target.value)} /></td>
                         <td><input aria-label={`أجر الساعة ${index + 1}`} className="field numeric" type="number" min="0" step="250" value={row.hourlyRate || ''} placeholder="0" onChange={(event) => updateRow(row.id, 'hourlyRate', event.target.value)} /></td>
-                        <td className="pay-cell">{formatNumber((Number(row.totalHours) || 0) * (Number(row.hourlyRate) || 0))}<span>د.ع</span></td>
+                        <td><input aria-label={`المكافأة الاختيارية ${index + 1}`} className="field numeric" type="number" min="0" step="1" value={row.bonus || ''} placeholder="0" onChange={(event) => updateRow(row.id, 'bonus', event.target.value)} /></td>
+                        <td className="pay-cell">{formatNumber(calculateFinalPay(row))}<span>د.ع</span></td>
                         <td><button className="btn danger" type="button" aria-label={`حذف ${row.name || 'العامل'}`} onClick={() => setRows((current) => current.filter((worker) => worker.id !== row.id))}><Trash2 size={15} /></button></td>
                       </tr>
                     ))}
@@ -248,7 +260,7 @@ function App() {
                 </table>
               </div>
               <div className="table-foot">
-                <div className="foot-note">تُحسب المستحقات تلقائياً: إجمالي الساعات × أجر الساعة</div>
+                <div className="foot-note">الأجر النهائي = (إجمالي الساعات × أجر الساعة) + المكافأة</div>
                 <div className="total-box"><span>الساعات الإجمالية <bdi>{formatNumber(totalHours)}</bdi></span><strong>{formatNumber(totalPayroll)} <small>د.ع</small></strong></div>
                 <button className="btn" type="button" onClick={exportExcel}><Download size={15} /> تنزيل كشف Excel</button>
               </div>
