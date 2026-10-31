@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "حساب ساعات العمال"
+description = "تطبيق عربي لاستيراد ملف Excel بأسماء العمال وساعات عملهم، وتعديل الأجر بالساعة وحساب المستحقات مع إمكانية التصدير."
+version = "1.0.0"
+id = "artifacts/worker-hours"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18777
+
+[services.development]
+run = "pnpm --filter @workspace/worker-hours run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/worker-hours", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/worker-hours/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18777"
+BASE_PATH = "/"

@@ -1,0 +1,1 @@
+- [Payroll data privacy](payroll-data-privacy.md) — keep worker names, hours, and rates browser-only unless the user asks for shared storage.
