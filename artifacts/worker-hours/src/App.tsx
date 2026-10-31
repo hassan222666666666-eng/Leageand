@@ -14,6 +14,10 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat('ar-IQ', { maximumFractionDigits: 2 }).format(Number.isFinite(value) ? value : 0);
 }
 
+function formatHours(value: number) {
+  return new Intl.NumberFormat('ar-IQ', { maximumFractionDigits: 4 }).format(Number.isFinite(value) ? value : 0);
+}
+
 function calculateFinalPay(worker: Pick<Worker, 'totalHours' | 'hourlyRate' | 'bonus'>) {
   return (Number(worker.totalHours) || 0) * (Number(worker.hourlyRate) || 0) + (Number(worker.bonus) || 0);
 }
@@ -47,14 +51,16 @@ async function importWorkbook(file: File): Promise<Worker[]> {
   const workbook = XLSX.read(bytes, { type: 'array', cellDates: true });
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!firstSheet) throw new Error('لم نعثر على ورقة بيانات في هذا الملف.');
-  const grid = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, { header: 1, defval: '' });
+  const grid = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, { header: 1, defval: '', raw: false });
   let headerRow = -1;
   let nameCol = -1;
   let hoursCol = -1;
+  let idCol = -1;
   let fallbackHours: number[] = [];
   for (let r = 0; r < Math.min(grid.length, 30); r += 1) {
     const headers = (grid[r] ?? []).map(normalizeHeader);
     const possibleName = headers.findIndex((h) => /^(الإسم|الاسم|اسمالعامل|اسم|employee|worker|name)/.test(h));
+    const possibleId = headers.findIndex((h) => /^(رقمالموظف|معرفالموظف|employeeid|workerid)$/.test(h));
     if (possibleName < 0) continue;
     // Match complete total-hours labels only. A loose substring search can
     // accidentally select "كسر إجمالي الساعات" (hours fraction) before
@@ -66,6 +72,7 @@ async function importWorkbook(file: File): Promise<Worker[]> {
     headerRow = r;
     nameCol = possibleName;
     hoursCol = total;
+    idCol = possibleId;
     break;
   }
   // Some attendance exports omit a grand-total field; in that case sum only
@@ -75,23 +82,28 @@ async function importWorkbook(file: File): Promise<Worker[]> {
       const headers = (grid[r] ?? []).map(normalizeHeader);
       const possibleName = headers.findIndex((h) => /^(الإسم|الاسم|اسمالعامل|اسم|employee|worker|name)/.test(h));
       if (possibleName < 0) continue;
+      const possibleId = headers.findIndex((h) => /^(رقمالموظف|معرفالموظف|employeeid|workerid)$/.test(h));
       const columns = headers.map((h, i) => /ساعاتالعمل|اعتيادي\(h\)|regularhours|workhours/.test(h) ? i : -1).filter((i) => i >= 0);
-      if (columns.length) { headerRow = r; nameCol = possibleName; fallbackHours = columns; break; }
+      if (columns.length) { headerRow = r; nameCol = possibleName; idCol = possibleId; fallbackHours = columns; break; }
     }
   }
   if (headerRow < 0) {
     throw new Error('لم يتم العثور على عمود الاسم وإجمالي الساعات. تحقق من عناوين الأعمدة في الملف.');
   }
-  const totals = new Map<string, number>();
+  const totals = new Map<string, { name: string; totalHours: number }>();
   for (const row of grid.slice(headerRow + 1)) {
     const name = String(row?.[nameCol] ?? '').trim();
     if (!name || /^الإجمالي|^المجموع/.test(name)) continue;
     const hours = hoursCol >= 0 ? numericCell(row?.[hoursCol]) : fallbackHours.reduce((sum, col) => sum + numericCell(row?.[col]), 0);
     if (!Number.isFinite(hours) || hours <= 0) continue;
-    totals.set(name, (totals.get(name) ?? 0) + hours);
+    const employeeId = idCol >= 0 ? String(row?.[idCol] ?? '').trim() : '';
+    const key = employeeId ? `id:${employeeId}` : `name:${name}`;
+    const current = totals.get(key);
+    if (current) current.totalHours += hours;
+    else totals.set(key, { name, totalHours: hours });
   }
   if (!totals.size) throw new Error('تم فتح الملف لكن لم نجد أسماء عمال وساعات قابلة للاستيراد.');
-  return Array.from(totals, ([name, totalHours]) => makeWorker(name, Math.round(totalHours * 100) / 100, 0));
+  return Array.from(totals.values(), ({ name, totalHours }) => makeWorker(name, Math.round(totalHours * 10_000) / 10_000, 0));
 }
 
 function initialSavedState(): SavedState {
@@ -261,7 +273,7 @@ function App() {
               </div>
               <div className="table-foot">
                 <div className="foot-note">الأجر النهائي = (إجمالي الساعات × أجر الساعة) + المكافأة</div>
-                <div className="total-box"><span>الساعات الإجمالية <bdi>{formatNumber(totalHours)}</bdi></span><strong>{formatNumber(totalPayroll)} <small>د.ع</small></strong></div>
+                <div className="total-box"><span>الساعات الإجمالية <bdi>{formatHours(totalHours)}</bdi></span><strong>{formatNumber(totalPayroll)} <small>د.ع</small></strong></div>
                 <button className="btn" type="button" onClick={exportExcel}><Download size={15} /> تنزيل كشف Excel</button>
               </div>
             </>
